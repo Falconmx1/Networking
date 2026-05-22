@@ -1,81 +1,80 @@
 #!/usr/bin/env python3
 """
-Networking Tool - Professional Security Suite
+Networking Tool - Professional Security Suite v3.0
 """
 import argparse
 import sys
-import os
+import threading
+from src.utils import print_banner, get_platform
 from src.scanner import scan_ports
 from src.ids import detect_intrusions
-from src.report import generate_html_report
-from src.utils import print_banner, get_platform
+from src.vuln_scanner import scan_vulnerabilities
+from src.packet_capture import capture_packets
+from src.dashboard import start_dashboard
+from src.api import start_api_server
 
 def main():
     print_banner()
     
     parser = argparse.ArgumentParser(
-        description="Networking Tool - Escaneo de puertos, detección de intrusos y monitoreo de red",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Ejemplos:
-  networking --scan 192.168.1.1 -p 1-1000
-  networking --scan 192.168.1.1 -p 22,80,443 --stealth --threads 200
-  networking --ids --interface eth0
-  networking --scan 8.8.8.8 -p 1-1000 --report
-        """
+        description="Networking Tool v3.0 - Suite profesional de seguridad",
+        formatter_class=argparse.RawDescriptionHelpFormatter
     )
     
-    # Escaneo de puertos
-    parser.add_argument("--scan", help="Dirección IP o dominio a escanear")
-    parser.add_argument("-p", "--ports", default="1-1000", help="Rango de puertos (ej: 22,80 o 1-1000)")
-    parser.add_argument("--threads", type=int, default=100, help="Número de hilos para escaneo (default: 100)")
-    parser.add_argument("--stealth", action="store_true", help="Modo sigiloso con retrasos aleatorios")
+    # Escaneo
+    parser.add_argument("--scan", help="Escaneo de puertos a IP/dominio")
+    parser.add_argument("-p", "--ports", default="1-1000", help="Rango de puertos")
+    parser.add_argument("--threads", type=int, default=200, help="Hilos para escaneo")
+    parser.add_argument("--stealth", action="store_true", help="Modo sigiloso")
     
-    # Detección de intrusos
-    parser.add_argument("--ids", action="store_true", help="Activar detección de intrusos (ARP spoofing)")
-    parser.add_argument("--interface", default="eth0", help="Interfaz de red para monitoreo")
+    # IDS
+    parser.add_argument("--ids", action="store_true", help="Detección de intrusos")
+    parser.add_argument("--interface", default="eth0", help="Interfaz de red")
     
-    # Reportes
-    parser.add_argument("--report", action="store_true", help="Generar reporte HTML")
-    parser.add_argument("--output", default="report.html", help="Nombre del archivo de reporte")
+    # Vulnerabilidades
+    parser.add_argument("--vuln", help="Escaneo de vulnerabilidades a IP/dominio")
+    
+    # Captura de paquetes
+    parser.add_argument("--capture", action="store_true", help="Capturar paquetes")
+    parser.add_argument("--duration", type=int, help="Duración en segundos")
+    parser.add_argument("--packets", type=int, help="Número de paquetes a capturar")
+    
+    # Dashboard y API
+    parser.add_argument("--dashboard", action="store_true", help="Iniciar dashboard web")
+    parser.add_argument("--api", action="store_true", help="Iniciar API para app móvil")
+    parser.add_argument("--port", type=int, default=5000, help="Puerto del servidor")
     
     args = parser.parse_args()
     
-    scan_results = {}
-    alerts_results = []
+    # Dashboard web
+    if args.dashboard:
+        start_dashboard(host='0.0.0.0', port=args.port)
+        return
     
-    # Ejecutar escaneo si se solicita
+    # API server
+    if args.api:
+        start_api_server(host='0.0.0.0', port=args.port + 1)
+        return
+    
+    # Escaneo de puertos
     if args.scan:
-        print(f"\n[+] Iniciando escaneo contra: {args.scan}")
         open_ports = scan_ports(args.scan, args.ports, args.threads, args.stealth)
-        scan_results = {
-            'target': args.scan,
-            'open_ports': open_ports,
-            'services': {p: scan_ports.__code__ for p in open_ports}  # Simplificado
-        }
+        print(f"\n✅ Puertos abiertos: {open_ports}")
     
-    # Ejecutar IDS si se solicita
+    # Detección de intrusos
     if args.ids:
-        print(f"\n[+] Iniciando detección de intrusos en {args.interface}")
-        alerts_results = detect_intrusions(args.interface)
+        alerts = detect_intrusions(args.interface)
     
-    # Generar reporte
-    if args.report and (scan_results or alerts_results):
-        report_file = generate_html_report(scan_results, alerts_results, args.output)
-        print(f"\n[✓] Reporte guardado: {report_file}")
-        
-        # Intentar abrir en navegador
-        if get_platform() == "Windows":
-            os.system(f"start {report_file}")
-        elif get_platform() == "Linux":
-            os.system(f"xdg-open {report_file}")
+    # Escaneo de vulnerabilidades
+    if args.vuln:
+        vulns = scan_vulnerabilities(args.vuln)
     
-    if not (args.scan or args.ids):
+    # Captura de paquetes
+    if args.capture:
+        capture_packets(args.interface, args.duration, args.packets)
+    
+    if not (args.scan or args.ids or args.vuln or args.capture or args.dashboard or args.api):
         parser.print_help()
 
 if __name__ == "__main__":
-    # Verificar permisos en Linux para IDS
-    if get_platform() == "Linux" and os.geteuid() != 0:
-        print("[!] Para detección de intrusos en Linux necesitas permisos root (sudo)")
-    
     main()
