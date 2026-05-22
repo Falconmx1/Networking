@@ -1,40 +1,83 @@
-import socket
-import struct
+from scapy.all import ARP, Ether, srp, sniff, send
 import time
 import sys
+from colorama import init, Fore, Style
 
-# Solo funciona en Linux (por raw socket) - en Windows requeriría Npcap
+init(autoreset=True)
+
+class ARPSpoofDetector:
+    def __init__(self, interface=None):
+        self.interface = interface
+        self.mac_ip_map = {}
+        self.suspicious_activity = []
+        
+    def get_mac(self, ip):
+        """Obtiene MAC de una IP usando ARP request"""
+        arp_request = ARP(pdst=ip)
+        broadcast = Ether(dst="ff:ff:ff:ff:ff:ff")
+        packet = broadcast / arp_request
+        answered = srp(packet, timeout=2, verbose=False)[0]
+        
+        if answered:
+            return answered[0][1].hwsrc
+        return None
+    
+    def scan_network(self, ip_range="192.168.1.0/24"):
+        """Escanea la red para mapear IP -> MAC"""
+        print(f"{Fore.CYAN}[*] Escaneando red {ip_range}...")
+        arp_request = ARP(pdst=ip_range)
+        broadcast = Ether(dst="ff:ff:ff:ff:ff:ff")
+        packet = broadcast / arp_request
+        answered = srp(packet, timeout=2, verbose=False)[0]
+        
+        for sent, received in answered:
+            self.mac_ip_map[received.psrc] = received.hwsrc
+            
+        print(f"{Fore.GREEN}[✓] Encontrados {len(self.mac_ip_map)} dispositivos")
+        return self.mac_ip_map
+    
+    def detect_arp_spoof(self, packet):
+        """Detecta posibles ataques ARP spoofing"""
+        if packet.haslayer(ARP) and packet[ARP].op == 2:  # ARP response
+            ip = packet[ARP].psrc
+            mac = packet[ARP].hwsrc
+            
+            if ip in self.mac_ip_map:
+                if self.mac_ip_map[ip] != mac:
+                    alert = f"🚨 ALERTA ARP SPOOFING: IP {ip} está cambiando MAC! Antes: {self.mac_ip_map[ip]}, Ahora: {mac}"
+                    print(f"{Fore.RED}{alert}")
+                    self.suspicious_activity.append({
+                        'type': 'ARP Spoofing',
+                        'ip': ip,
+                        'old_mac': self.mac_ip_map[ip],
+                        'new_mac': mac,
+                        'timestamp': time.time()
+                    })
+                    self.mac_ip_map[ip] = mac  # Actualizar para futuras detecciones
+            else:
+                # Nueva IP detectada
+                print(f"{Fore.YELLOW}[!] Nueva IP detectada: {ip} -> {mac}")
+                self.mac_ip_map[ip] = mac
+    
+    def start_monitoring(self, interface=None):
+        """Inicia monitoreo ARP en tiempo real"""
+        iface = interface or self.interface
+        print(f"{Fore.CYAN}[*] Monitoreando ARP en {iface}")
+        print(f"{Fore.YELLOW}[!] Presiona Ctrl+C para detener")
+        
+        try:
+            sniff(iface=iface, prn=self.detect_arp_spoof, store=0, filter="arp")
+        except KeyboardInterrupt:
+            print(f"\n{Fore.GREEN}[✓] Monitoreo detenido")
+            return self.suspicious_activity
+
 def detect_intrusions(interface):
-    """Detecta conexiones sospechosas (escucha raw)"""
-    print(f"[!] Modo IDS activado en {interface}")
-    print("[!] Detectando conexiones nuevas...")
+    """Función principal de detección de intrusos"""
+    detector = ARPSpoofDetector(interface)
     
-    try:
-        # RAW socket (requiere root)
-        sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(3))
-        sock.bind((interface, 0))
-    except:
-        print("[!] Modo IDS solo funciona en Linux con permisos root (sudo)")
-        print("[!] En Windows, usa Wireshark + Npcap o implementa con scapy")
-        return
+    # Primero escanear la red
+    detector.scan_network()
     
-    connections = {}
-    print("[*] Monitoreando (Ctrl+C para detener)...")
-    
-    try:
-        while True:
-            packet, addr = sock.recvfrom(65535)
-            # Extraer IPs (formato Ethernet + IP)
-            if len(packet) > 34:
-                # IP src offset 26, dst offset 30
-                src_ip = socket.inet_ntoa(packet[26:30])
-                dst_ip = socket.inet_ntoa(packet[30:34])
-                conn_key = f"{src_ip} -> {dst_ip}"
-                
-                if conn_key not in connections:
-                    connections[conn_key] = time.time()
-                    print(f"[ALERTA] Nueva conexión: {conn_key}")
-                elif time.time() - connections[conn_key] > 60:
-                    del connections[conn_key]
-    except KeyboardInterrupt:
-        print("\n[+] IDS detenido")
+    # Luego monitorear
+    alerts = detector.start_monitoring(interface)
+    return alerts
