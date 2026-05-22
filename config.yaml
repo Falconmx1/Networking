@@ -1,0 +1,28 @@
+# Networking Tool Configuration
+network:
+  default_interface: "eth0"  # Linux: eth0, Windows: "Wi-Fi"
+  scan_threads: 200
+  stealth_delay_base: 0.05
+  stealth_delay_jitter: 0.2
+
+dashboard:
+  host: "0.0.0.0"
+  port: 5000
+  debug: false
+  secret_key: "networking-secret-key-2025"
+
+api:
+  host: "0.0.0.0"
+  port: 5001
+  jwt_secret: "jwt-secret-key-change-this"
+  jwt_expiry_hours: 24
+
+packet_capture:
+  max_file_size_mb: 100
+  storage_path: "./captures"
+  auto_rotate: true
+
+vulnerabilities:
+  enable_scanning: true
+  timeout_seconds: 5
+  common_ports: [21,22,23,25,80,443,445,3306,3389,5432,5900,8080]
