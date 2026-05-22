@@ -31,3 +31,23 @@
 git clone https://github.com/Falconmx1/Networking.git
 cd Networking
 sudo python3 setup.py install
+
+🚀 Comandos finales para usar TODO
+
+# Instalar todo
+pip install -r requirements.txt
+
+# Iniciar dashboard web (http://localhost:5000)
+python networking.py --dashboard --port 5000
+
+# Iniciar API para app móvil (http://localhost:5001)
+python networking.py --api --port 5001
+
+# Escaneo completo con todo
+sudo python networking.py --scan 192.168.1.1 -p 1-1000 --stealth --vuln 192.168.1.1 --ids --capture
+
+# Generar reporte HTML
+python networking.py --scan 8.8.8.8 -p 80,443 --report
+
+# Captura de paquetes por 60 segundos
+sudo python networking.py --capture --interface eth0 --duration 60
