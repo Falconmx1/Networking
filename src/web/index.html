@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Networking Dashboard</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="dashboard">
+        <div class="header">
+            <h1>🌐 Networking Tool</h1>
+            <p>Monitoreo de red en tiempo real</p>
+            <div class="status">
+                <span id="connection-status">Conectando...</span>
+            </div>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="card">
+                <h3>📊 Tráfico de Red</h3>
+                <canvas id="traffic-chart"></canvas>
+            </div>
+            
+            <div class="card">
+                <h3>💻 Sistema</h3>
+                <div class="system-stats">
+                    <div>CPU: <span id="cpu-usage">0</span>%</div>
+                    <div class="progress-bar"><div id="cpu-bar" style="width: 0%"></div></div>
+                    <div>RAM: <span id="ram-usage">0</span>%</div>
+                    <div class="progress-bar"><div id="ram-bar" style="width: 0%"></div></div>
+                </div>
+            </div>
+            
+            <div class="card full-width">
+                <h3>🔌 Conexiones Activas</h3>
+                <div class="table-container">
+                    <table id="connections-table">
+                        <thead>
+                            <tr><th>Local</th><th>Remoto</th><th>Estado</th><th>PID</th></tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="card full-width">
+                <h3>🚨 Alertas Recientes</h3>
+                <div id="alerts-container"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="dashboard.js"></script>
+</body>
+</html>
